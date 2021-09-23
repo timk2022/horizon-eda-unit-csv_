@@ -6,7 +6,6 @@ import csv
 import random
 import string
 import json
-import sqlite3
 
 parser = argparse.ArgumentParser(description="auto generate units for horizon-eda")
 
@@ -17,9 +16,6 @@ parser.add_argument(
     "-d", type=str, required=True, help="specify path to horizon pool db"
 )
 
-parser.add_argument(
-    "-b", type=str, help=" to horizon pool db"
-)
 
 args = parser.parse_args()
 
@@ -31,20 +27,6 @@ def uuid_gen(format=[8, 4, 4, 4,12], chars=string.ascii_lowercase[0:6] + string.
     for n in format:
         tmp += "".join(random.SystemRandom().choice(chars) for _ in range(n)) + "-"
     return tmp[:-1]
-
-def conn_gen(db_path):
-    conn = None
-    try:
-        conn = sqlite3.connect(db_path)
-    except Exception as e:
-        print(e)
-    return conn
-
-def add_to_table(conn,task):
-    sql = ''' INSERT INTO units(uuid,name,manufacturer,filename, pool_uuid,last_pool_uuid) VALUES(?,?,?,?,?,?)'''
-    cur = conn.cursor()
-    cur.execute(sql, task)
-    conn.commit()
 
 def alphabetize_dict(list, key):
     tmp = []
@@ -113,13 +95,8 @@ for bank_name_key in banks:
             unit["name"] = args.n+"-power"
             json.dump(unit, outfile, indent=3)
 
-        task = (unit['uuid'], args.n +"-power", args.m, "","","")
-        add_to_table(conn_gen(args.d),task)
     else:
         out_path =  args.n +  f"-{bank_name}.json" 
         with open(out_path, 'w') as outfile:
             unit["name"] = args.n+f"-{bank_name}"
             json.dump(unit, outfile, indent=3)
-
-        task = (unit['uuid'], args.n + f"-{bank_name}", args.m, "","","")
-        add_to_table(conn_gen(args.d),task)
