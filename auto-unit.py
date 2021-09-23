@@ -58,7 +58,7 @@ pin_list = {}
 tmp = []
 
 
-banks = {"0":"0","1":"1","2":"2","3":"3","power":["vcc","gnd","vccio","gndpll","vccpll"],"spi":"spi"}
+banks = {"0":"0","1":"1","2":"2","3":"3","power":["vcc","gnd","vccio","gndpll","vccpll","vpp"],"spi":"spi"}
 
 for bank_name_key in banks:
     pin_list = {}
