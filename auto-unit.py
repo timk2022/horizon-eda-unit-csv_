@@ -26,7 +26,7 @@ args = parser.parse_args()
 csv_path = args.p
 
 
-def uuid_gen(format=[8, 4, 4, 12], chars=string.ascii_lowercase + string.digits):
+def uuid_gen(format=[8, 4, 4, 4,12], chars=string.ascii_lowercase[0:6] + string.digits):
     tmp = ""
     for n in format:
         tmp += "".join(random.SystemRandom().choice(chars) for _ in range(n)) + "-"
