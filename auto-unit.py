@@ -14,7 +14,11 @@ parser.add_argument("-p", type=str, required=True, help="specify root path to cs
 parser.add_argument("-m", type=str, required=True, help="specify manufacturer")
 parser.add_argument("-n", type=str, required=True, help="specify name of unit")
 parser.add_argument(
-    "-hdb", type=str, required=True, help="specify path to horizon pool db"
+    "-d", type=str, required=True, help="specify path to horizon pool db"
+)
+
+parser.add_argument(
+    "-b", type=str, help=" to horizon pool db"
 )
 
 args = parser.parse_args()
@@ -32,7 +36,7 @@ def conn_gen(db_path):
     conn = None
     try:
         conn = sqlite3.connect(db_path)
-    except Error as e:
+    except Exception as e:
         print(e)
     return conn
 
@@ -41,6 +45,23 @@ def add_to_table(conn,task):
     cur = conn.cursor()
     cur.execute(sql, task)
     conn.commit()
+
+def alphabetize_dict(list, key):
+    tmp = []
+    while(1):
+        changes = False
+        for index, elem in enumerate(list):
+            if index > 0:
+                if elem[key] < prev_elem[key]:
+                    tmp = list[index-1]
+                    list[index-1] = list[index]
+                    list[index] = tmp
+                    changes = True
+            prev_elem = elem
+        if not changes:
+            return list
+
+
 
 unit = {
     "manufacturer": args.m,
@@ -52,30 +73,53 @@ unit = {
 
 
 pin_list = {}
-with open(csv_path, newline="") as csvfile:
-    reader = csv.DictReader(csvfile)
-    for row in reader:
-        pin_function = row["Pin Function"]
-        pin_type = row["Pin Type"].lower()
-        bank = row["Bank"]
-        pin_name = row["121-cabga"]
-        direction = ""
-        if pin_name != "-" and pin_name != "" and pin_name != " ": 
-            if "pio" in pin_type or "config" in pin_type or "spi" in pin_type:
-                direction = "bidirectional"
-            elif "gnd" in pin_type or "gbin" in pin_type:
-                direction = "passive"
-            elif "vcc" in pin_type or "vpp" in pin_type:
-                direction = "power_input"
-            elif "nc" in pin_type:
-                direction = "not_connected"
-            tmp = {"direction": direction, "names": [pin_function],"primary_name":pin_name,"swap_group": 0}
-            pin_list[uuid_gen()] = tmp
-unit["pins"] = pin_list
+tmp = []
 
-out_path =  args.n + ".json" 
-with open(out_path, 'w') as outfile:
-    json.dump(unit, outfile, indent=3)
 
-task = (unit['uuid'], args.n, args.m, "","","")
-add_to_table(conn_gen(args.hdb),task)
+banks = {"0":"0","1":"1","2":"2","3":"3","power":["vcc","gnd","vccio","gndpll","vccpll"],"spi":"spi"}
+
+for bank_name_key in banks:
+    pin_list = {}
+    tmp = []
+    bank_name = banks[bank_name_key]
+    with open(csv_path, newline="") as csvfile:
+        reader = csv.DictReader(csvfile)
+        for row in reader:
+            pin_function = row["Pin Function"]
+            pin_type = row["Pin Type"].lower()
+            bank = row["Bank"].lower()
+            pin_name = row["121-cabga"]
+            direction = ""
+            if bank in bank_name:
+                if pin_name != "-" and pin_name != "" and pin_name != " ": 
+                    if "pio" in pin_type or "config" in pin_type or "spi" in pin_type:
+                        direction = "bidirectional"
+                    elif "gnd" in pin_type or "gbin" in pin_type:
+                        direction = "passive"
+                    elif "vcc" in pin_type or "vpp" in pin_type:
+                        direction = "power_input"
+                    elif "nc" in pin_type:
+                        direction = "not_connected"
+                    tmp.append({"direction": direction, "names": [pin_function],"primary_name":pin_name,"swap_group": 0})
+
+    for elem in alphabetize_dict(tmp, "primary_name"):
+        pin_list[uuid_gen()] = elem
+    unit["pins"] = pin_list
+    unit["uuid"] = uuid_gen()
+
+    if type(bank_name) == list:
+        out_path =  args.n + "-power.json" 
+        with open(out_path, 'w') as outfile:
+            unit["name"] = args.n+"-power"
+            json.dump(unit, outfile, indent=3)
+
+        task = (unit['uuid'], args.n +"-power", args.m, "","","")
+        add_to_table(conn_gen(args.d),task)
+    else:
+        out_path =  args.n +  f"-{bank_name}.json" 
+        with open(out_path, 'w') as outfile:
+            unit["name"] = args.n+f"-{bank_name}"
+            json.dump(unit, outfile, indent=3)
+
+        task = (unit['uuid'], args.n + f"-{bank_name}", args.m, "","","")
+        add_to_table(conn_gen(args.d),task)
